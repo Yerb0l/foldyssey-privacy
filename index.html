@@ -47,24 +47,34 @@ or closed.</p>
 <p>Foldyssey uses the Android <strong>AccessibilityService API</strong>. It is not an assistive
 tool for people with disabilities; the API is used because it is the only way an app can draw an
 overlay above other apps during the fold/unfold transition and get an image of the current screen
-for that overlay. You turn the service on yourself in Android settings, after Foldyssey explains in
-the app what it does and asks for your consent. You can turn it off at any time in the same place,
-or pause the effect with the Quick Settings tile.</p>
+for that overlay. Before you can open the accessibility settings from the app, Foldyssey shows a
+separate screen that explains what the service accesses and why, and asks for your consent with
+"Agree" or "Not now". Until you tap "Agree", the service does nothing, even if you turn it on
+directly in Android settings: it asks Android not to send it any window events, takes no
+screenshots, reads no windows or app names and shows no overlay. You can read that explanation again and withdraw your consent at any time from the menu
+on the app's main screen; the service stops at once. You can also turn the service off in Android
+settings, or pause the effect with the Quick Settings tile.</p>
 <p>While the service is on, Foldyssey uses it only for the following:</p>
 <table>
 <tr><th>What the service accesses</th><th>Why</th><th>What happens to it</th></tr>
 <tr>
-  <td>An image of the current screen (<code>takeScreenshot</code>), taken just before and during a
-      fold or unfold</td>
-  <td>It is the picture shown behind the frosted glass during the transition</td>
-  <td>Kept only in the app's memory for a short time and discarded. Never written to storage,
-      never included in logs, never sent off the device</td>
+  <td>An image of the current screen (<code>takeScreenshot</code>), taken while you fold or
+      unfold the phone, and otherwise whenever the windows on screen change (you switch apps, open
+      another screen, a dialog or the notification shade), at most once a second, only while the
+      screen is on and unlocked</td>
+  <td>It is the picture shown behind the frosted glass during the transition; the latest one is
+      kept so that a picture is ready for the next unfold</td>
+  <td>Kept only in the app's memory: the latest image of each screen, until the next one replaces
+      it. Never written to storage, never included in logs, never sent off the device</td>
 </tr>
 <tr>
-  <td>The package name of the app in the foreground (from window change events)</td>
+  <td>The list of windows on screen, the package name of the app in the foreground (from window
+      change events and the top window) and whether the screen is locked</td>
   <td>So that a picture of one app is never shown over another app, and never over the lock
       screen</td>
-  <td>Kept in memory. May appear in the local diagnostics log (section 5)</td>
+  <td>Kept in memory only. App names are not written to the diagnostics log: it records an
+      anonymous label instead (<code>app#1</code>, <code>app#2</code>, …), which only shows
+      whether the app changed (section 5)</td>
 </tr>
 <tr>
   <td>Hinge angle, posture and display state</td>
@@ -74,24 +84,39 @@ or pause the effect with the Quick Settings tile.</p>
 <tr>
   <td>The ability to draw an overlay window</td>
   <td>To show the transition itself</td>
-  <td>The overlay is removed when the transition ends. It does not intercept your touches</td>
+  <td>The effect overlay is removed when the transition ends. It does not intercept your touches.
+      Precise mode also keeps a tiny invisible window while it reads the angle from the wallpaper
+      (section 4)</td>
 </tr>
 </table>
-<p>Foldyssey does not read the text or contents of other apps' screens, does not perform actions
-on your behalf, does not change your settings through the accessibility service, and does not
-monitor what you type.</p>
+<p>Apart from the screen image and the foreground app's package name described above, Foldyssey
+does not read the text or UI elements of other apps, does not perform actions on your behalf, does
+not change your settings through the accessibility service, and does not monitor what you type.</p>
 
 <h2>4. Optional "precise mode"</h2>
-<p>If you choose to enable precise mode, Foldyssey connects to your phone's own
-<em>Wireless debugging</em> service (Developer options), using a pairing code that you enter. This
-connection stays inside your phone and your local network; nothing is sent to the developer or to
-any third party. Over it, the app:</p>
+<p>Precise mode is off unless you choose it. Before it starts, Foldyssey shows a separate screen
+that explains what precise mode does and asks for your consent. If you agree, Foldyssey connects
+only to your phone's own <em>Wireless debugging</em> service (Developer options), using a pairing
+code that you type yourself, and checks that the other end really is your phone's system (for this
+check it briefly writes its own key <code>foldyssey_adb_probe</code> to the system settings and
+deletes it right away). The connection itself stays inside your phone; to find it, the app sends
+standard service-discovery (mDNS) queries on your Wi-Fi network, which carry no personal data.
+Nothing is sent to the developer or to any third party. Over the connection, the app:</p>
 <ul>
-<li>reads only the system log lines from the hinge sensor and the Samsung wallpaper service that
-contain the hinge angle;</li>
-<li>grants itself the permission to switch Wireless debugging back on after a restart, if you
-allow automatic reconnection.</li>
+<li>reads only the system log lines from the hinge sensor and the Samsung fold wallpaper that
+contain the hinge angle (the log is filtered by these two sources);</li>
+<li>only if you turn on "Turn Wireless debugging on automatically" (off by default), grants itself
+the <code>WRITE_SECURE_SETTINGS</code> permission and uses it only to switch Wireless debugging back
+on after a restart or when Wi-Fi returns. It changes no other settings with this permission.</li>
 </ul>
+<p>While precise mode reads the angle from the Samsung fold wallpaper and the screen is on, Foldyssey
+keeps an invisible 1&times;1-pixel window (it does not take touches) and asks the wallpaper for the
+angle about 60 times a second. The window is removed when the screen turns off, when precise mode
+or the effect is turned off, or if the wallpaper does not answer.</p>
+<p>While Wireless debugging is on, a computer that you have already paired with your phone can also
+connect to it on the same network; you can turn Wireless debugging off in Developer options at any
+time. You can withdraw your consent for precise mode from the menu on the app's main screen:
+Foldyssey then disconnects and returns to basic mode.</p>
 <p>A private key used to authenticate this connection is generated on your phone and stored in the
 app's private storage. The pairing code is not stored or logged.</p>
 
@@ -105,10 +130,11 @@ app's private storage. The pairing code is not stored or logged.</p>
 </tr>
 <tr>
   <td>Diagnostics log: timing of fold/unfold events, hinge angles, which image source was used,
-      foreground app package names, errors</td>
+      errors. The app in the foreground appears only as an anonymous label (<code>app#1</code>,
+      <code>app#2</code>, …), never by name; screen images are never logged</td>
   <td>To troubleshoot and calibrate the effect</td>
   <td>Text files in app-private storage, size-limited and rotated. They leave the phone only if
-      you tap "Send" in the log screen and pick an app to share them with</td>
+      you tap "Share" in the log screen and pick an app to share them with</td>
 </tr>
 <tr>
   <td>Precise mode key pair</td>
@@ -132,18 +158,25 @@ tune the app.</p>
         <code>CHANGE_WIFI_MULTICAST_STATE</code></td>
     <td>Precise mode only: to find and connect to the phone's own Wireless debugging service on the
         local network</td></tr>
-<tr><td><code>FOREGROUND_SERVICE</code>, <code>FOREGROUND_SERVICE_SPECIAL_USE</code>,
-        <code>POST_NOTIFICATIONS</code></td>
-    <td>To show the notification in which you enter the Wireless debugging pairing code while the
-        system settings screen is open</td></tr>
+<tr><td><code>FOREGROUND_SERVICE</code>, <code>POST_NOTIFICATIONS</code></td>
+    <td>Precise mode only: to show, for a few minutes at most (a short foreground service), the
+        notification in which you enter the Wireless debugging pairing code while the system
+        settings screen is open</td></tr>
 <tr><td><code>RECEIVE_BOOT_COMPLETED</code></td>
-    <td>To restore precise mode after a restart, if you enabled it</td></tr>
-<tr><td><code>READ_LOGS</code>, <code>WRITE_SECURE_SETTINGS</code></td>
-    <td>Precise mode only, granted over your own Wireless debugging connection: to read the hinge
-        angle from the system log and to switch Wireless debugging back on</td></tr>
+    <td>Precise mode only, and only if you turned on automatic re-enabling: to switch Wireless
+        debugging back on after a restart and reconnect. Without it, precise mode, if you chose it,
+        resumes after a restart when the accessibility service starts, and waits until you turn
+        Wireless debugging on yourself</td></tr>
+<tr><td><code>WRITE_SECURE_SETTINGS</code></td>
+    <td>Precise mode only, and only if you turn on automatic re-enabling (off by default): granted
+        over your own Wireless debugging connection and used only to switch Wireless debugging back
+        on. The hinge angle is read from the system log over that same connection; Foldyssey does
+        not hold the <code>READ_LOGS</code> permission</td></tr>
 </table>
 <p>Foldyssey does not request access to your microphone, camera, contacts, calendar, location,
-phone state, call logs, SMS, files, health data or the list of installed apps.</p>
+phone state, call logs, SMS, files, health data or the list of installed apps. It does not ask to
+be exempted from battery optimization: the setup screen only opens Android's battery optimization
+list, where you decide yourself.</p>
 
 <h2>8. Children</h2>
 <p>Foldyssey is a visual customisation for a general adult audience. It is not directed at
